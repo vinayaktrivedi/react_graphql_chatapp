@@ -1,17 +1,74 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import './index.css';
-import App from './App';
+import './styles/index.css';
+import App from './components/App';
+import logo from './logo.svg';
 import * as serviceWorker from './serviceWorker';
 
-ReactDOM.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-  document.getElementById('root')
+import { split } from 'apollo-link'
+import { WebSocketLink } from 'apollo-link-ws'
+import { getMainDefinition } from 'apollo-utilities'
+import { ApolloProvider } from 'react-apollo';
+import { ApolloClient } from 'apollo-client';
+import { createHttpLink } from 'apollo-link-http';
+import { InMemoryCache } from 'apollo-cache-inmemory';
+import { BrowserRouter } from 'react-router-dom';
+import { setContext } from 'apollo-link-context';
+const AUTH_TOKEN = "uplaratexttoken";
+const authLink = setContext((_, { headers }) => {
+  const token = localStorage.getItem("uplaratexttoken");
+  return {
+    headers: {
+      ...headers,
+      authorization: token ? `Bearer ${token}` : ''
+    }
+  };
+});
+
+const wsLink = new WebSocketLink({
+  uri: 'ws://uplarachatapp.herokuapp.com/v1/graphql',
+  options: {
+    reconnect: true,
+    lazy: true,
+    connectionParams: {
+      authToken: localStorage.getItem(AUTH_TOKEN),
+    }
+  }
+});
+
+wsLink.subscriptionClient.on("connected", () => {
+  console.log("connected");
+});
+
+const httpLink = createHttpLink({
+  uri: 'https://uplarachatapp.herokuapp.com/v1/graphql'
+});
+
+const link = split(
+  ({ query }) => {
+    const { kind, operation } = getMainDefinition(query)
+    return kind === 'OperationDefinition' && operation === 'subscription'
+  },
+  wsLink,
+  authLink.concat(httpLink)
 );
 
-// If you want your app to work offline and load faster, you can change
+
+const client = new ApolloClient({
+  link,
+  cache: new InMemoryCache()
+});
+
+
+ReactDOM.render(
+  <BrowserRouter>
+  <ApolloProvider client={client}>
+    <App />
+  </ApolloProvider> </BrowserRouter>, document.getElementById('root')
+);
+serviceWorker.unregister();
+
+/// If you want your app to work offline and load faster, you can change
 // unregister() to register() below. Note this comes with some pitfalls.
 // Learn more about service workers: https://bit.ly/CRA-PWA
-serviceWorker.unregister();
+//serviceWorker.unregister();

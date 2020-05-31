@@ -1,0 +1,2 @@
+One subscription to Participant table Addition/Updation where user_id = Your user id and conv id != current conv id
+One subscription to messages where conv id = current conv id
