@@ -81,7 +81,7 @@ class CreateUser extends Component {
   _confirm = (data) => {
     const token  = ((this.state.login == true) ? data.update_Users.returning[0].token : data.insert_Users_one.token);
     localStorage.setItem(AUTH_TOKEN, token);
-    console.log("Hello friend");   
+    //console.log("Hello friend");   
     this.props.history.push(`/`);
   }
 }

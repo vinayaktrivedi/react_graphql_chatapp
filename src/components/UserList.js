@@ -1,79 +1,103 @@
 import React, { Component } from 'react';
+import { useState } from 'react';
+import { useEffect } from 'react';
 import User from './User';
-import { Query } from 'react-apollo';
+import { Query, ApolloConsumer } from 'react-apollo';
 import gql from 'graphql-tag';
 import USER_QUERY from "../graphql/user";
 import VERIFY_QUERY from "../graphql/verify";
 import MessageArea from "./MessageArea";
+import { useQuery } from '@apollo/react-hooks';
+import { useLazyQuery } from "@apollo/react-hooks";
 import TypeArea from "./TypeArea";
+import { withApollo } from "react-apollo";
 const jwt = require("jsonwebtoken");
 const AUTH_TOKEN = "uplaratexttoken";
 const APP_SECRET = "appsecret123";
 
-class UserList extends Component {
-  state = {
-      token: localStorage.getItem(AUTH_TOKEN),
-      authenticated: 0,
-      conv_id: 0,
-      conv_name: '',
-      conv_list:[],
-      'group': false,
-  };
+function useAuthenticatedHook(token,client){
 
-  email = '';
-  user_id = 0;
-  message_window_user = (conv_id,conv_name,group_bool) => {
-    this.setState({ conv_id: conv_id, conv_name: conv_name, group:group_bool});
+    const [isAuth, setAuth] = useState([0,'',0]);
+    const [loadQuery, { called, loading, data }] = useLazyQuery(
+        VERIFY_QUERY, {variables: {token}, client:client}
+    );
+    useEffect(() => {
+      if(isAuth[0] == 0){
+        loadQuery();
+        if(data){
+          if(data.Users.length < 1){
+            setAuth([2,'',0]);
+          }else{
+            setAuth([1,data.Users[0].email,data.Users[0].id]);
+          }  
+        }  
+      }
+    });
+
+    return isAuth;
   }
 
-  render() {
-    const {token,authenticated,conv_id,conv_name} = this.state;
-    const email = this.email;
-    const user_id = this.user_id;
-    const group_bool = this.state.group;
-    if (authenticated == 2){
-      return <div><div>{token}</div> <div>Not Logged In</div></div>;
+function TotalHook(props){
+
+    const [conv_id, setConvId] = useState(0);
+    const [conv_name, setConvName] = useState('');
+    const [group_bool, setGroup] = useState(false);
+    const message_window_user = (conv_id,conv_name,group_bool) => {
+      setConvId(conv_id);
+      setConvName(conv_name);
+      setGroup(group_bool);
     }
-    return (
-      <div>
-      <Query
-          query = {authenticated == 1 ?  USER_QUERY: VERIFY_QUERY} variables ={authenticated == 1 ? {email} : {token}}
-      >
-      {({ loading, error, data }) => {
-          if(error) return <div><div>{email}</div><div>{authenticated}</div></div>;
-          if(loading) return <div>Loading </div>;
-          if(authenticated){
+    const [auth,email,user_id] = useAuthenticatedHook(props.token,props.client);
+    if(auth==2){
+      return <div><div>Not Logged In</div></div>;
+    }
+    else if(auth==0){
+      return <div> <div>Logging In</div></div>;
+    }
+    else{
+      console.log(user_id);
+     return (
+        <Query
+          query = {USER_QUERY} variables = {{email}}
+        >
+        {({ loading, error, data }) => {
+            if(error) return <div><div>{email}</div><div>{auth}</div></div>;
+            if(loading) return <div>Loading </div>;
             const ConvsToRender = data.Users[0].participants;
             return (
               <div>
                 <div>
-                {ConvsToRender.map(conv => <User key={conv.conversation.name} user={conv.conversation} clicke={this.message_window_user} />)}
+                {ConvsToRender.map(conv => <User key={conv.conversation.name} user={conv.conversation} clicke={message_window_user} />)}
                 </div>
                 <div>
-                  <MessageArea conv_id={conv_id} conv_name={conv_name} group_bool={group_bool} user_id={user_id} convs={ConvsToRender} email={email} clicke={this.message_window_user} />
+                  <MessageArea conv_id={conv_id} conv_name={conv_name} group_bool={group_bool} user_id={user_id} convs={ConvsToRender} email={email} clicke={message_window_user} />
                 </div>
                 <div>
                   <TypeArea conv_id={conv_id} conv_name={conv_name} group_bool={group_bool} user_id={user_id}/>
                 </div>
               </div>
-          );}
-          else{
-            if(data.Users.length < 1){
-              this.setState({ token: localStorage.getItem(AUTH_TOKEN), authenticated: 2});  
-            }else{
-              this.setState({ token: localStorage.getItem(AUTH_TOKEN), authenticated: 1});  
-              this.email = data.Users[0].email;
-              this.user_id = data.Users[0].id;
-            }
-            return null;
-          }
-      }}
-      </Query>
-      
-      </div>
-    );
-    
+            );
+        }}
+        </Query>
+      );
+    }
+  }
+
+class UserList extends Component {
+  state = {
+      token: localStorage.getItem(AUTH_TOKEN),
+  };
+
+  
+  render() {
+    const token = this.state.token;
+
+    return (<ApolloConsumer>
+      {client => (
+        <div><TotalHook token={token} client={client}/></div>
+      )}
+    </ApolloConsumer>)
   }
 }
 
-export default UserList;
+export default withApollo(UserList);

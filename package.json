@@ -21,7 +21,8 @@
     "react-router": "5.2.0",
     "react-router-dom": "5.0.1",
     "jsonwebtoken": "8.5.1",
-    "react-apollo-hooks": "0.5.0"
+    "react-apollo-hooks": "0.5.0",
+    "@apollo/react-hooks": "3.1.5"
   },
   "scripts": {
     "start": "react-scripts start",
