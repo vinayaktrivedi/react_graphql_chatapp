@@ -18,12 +18,12 @@ const APP_SECRET = "appsecret123";
 function useAuthenticatedHook(token,client){
 
     const [isAuth, setAuth] = useState([0,'',0]);
-    const [loadQuery, { called, loading, data }] = useLazyQuery(
+    const { loading, error, data } = useQuery(
         VERIFY_QUERY, {variables: {token}, client:client}
     );
+
     useEffect(() => {
       if(isAuth[0] == 0){
-        loadQuery();
         if(data){
           if(data.Users.length < 1){
             setAuth([2,'',0]);
@@ -35,7 +35,22 @@ function useAuthenticatedHook(token,client){
     });
 
     return isAuth;
-  }
+}
+
+function useConvsersationHook(email,client){
+
+    const [Convs, setConvs] = useState([]);
+    const { loading, error, data } = useQuery(
+          USER_QUERY, {variables: {email}, client:client}
+    );
+    useEffect(() => {
+      if(data){
+        setConvs(data.Users[0].participants);
+      }
+    });
+    return Convs;
+
+}
 
 function TotalHook(props){
 
@@ -48,6 +63,8 @@ function TotalHook(props){
       setGroup(group_bool);
     }
     const [auth,email,user_id] = useAuthenticatedHook(props.token,props.client);
+    const ConvsToRender = useConvsersationHook(email,props.client);
+
     if(auth==2){
       return <div><div>Not Logged In</div></div>;
     }
@@ -55,30 +72,21 @@ function TotalHook(props){
       return <div> <div>Logging In</div></div>;
     }
     else{
-      console.log(user_id);
+      if(ConvsToRender.length == 0){
+          return <div> <div>Loading Conversations</div></div>;   
+      }
      return (
-        <Query
-          query = {USER_QUERY} variables = {{email}}
-        >
-        {({ loading, error, data }) => {
-            if(error) return <div><div>{email}</div><div>{auth}</div></div>;
-            if(loading) return <div>Loading </div>;
-            const ConvsToRender = data.Users[0].participants;
-            return (
-              <div>
-                <div>
-                {ConvsToRender.map(conv => <User key={conv.conversation.name} user={conv.conversation} clicke={message_window_user} />)}
-                </div>
-                <div>
-                  <MessageArea conv_id={conv_id} conv_name={conv_name} group_bool={group_bool} user_id={user_id} convs={ConvsToRender} email={email} clicke={message_window_user} />
-                </div>
-                <div>
-                  <TypeArea conv_id={conv_id} conv_name={conv_name} group_bool={group_bool} user_id={user_id}/>
-                </div>
-              </div>
-            );
-        }}
-        </Query>
+        <div>
+          <div>
+          {ConvsToRender.map(conv => <User key={conv.conversation.name} user={conv.conversation} clicke={message_window_user} />)}
+          </div>
+          <div>
+            <MessageArea conv_id={conv_id} conv_name={conv_name} group_bool={group_bool} user_id={user_id} convs={ConvsToRender} email={email} clicke={message_window_user} />
+          </div>
+          <div>
+            <TypeArea conv_id={conv_id} conv_name={conv_name} group_bool={group_bool} user_id={user_id}/>
+          </div>
+        </div>
       );
     }
   }
